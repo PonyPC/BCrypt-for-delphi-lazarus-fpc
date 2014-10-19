@@ -45,21 +45,6 @@ const
 // pqrstuvwxyz_____
 
 function BsdBase64Encode(const Data: TBytes; BytesToEncode: integer): ansistring;
-
-  function EncodePacket(b1, b2, b3: byte; Len: integer): ansistring;
-  begin
-    Result := BsdBase64EncodeTable[b1 shr 2];
-    Result := Result + BsdBase64EncodeTable[((b1 and $03) shl 4) or (b2 shr 4)];
-    if Len < 2 then
-      Exit;
-
-    Result := Result + BsdBase64EncodeTable[((b2 and $0f) shl 2) or (b3 shr 6)];
-    if Len < 3 then
-      Exit;
-
-    Result := Result + BsdBase64EncodeTable[b3 and $3f];
-  end;
-
 var
   i: integer;
   len: integer;
@@ -109,7 +94,7 @@ function BsdBase64Decode(const s: ansistring): TBytes;
 
   function Char64(character: AnsiChar): integer;
   begin
-    if (Ord(character) < 0) or (Ord(character) > Length(BsdBase64DecodeTable)) then
+    if Ord(character) > Length(BsdBase64DecodeTable) then
     begin
       Result := -1;
     end
@@ -178,7 +163,10 @@ begin
   end;
 end;
 
-function HashPassword(Str:string; Hash
+function HashPassword(Str: string; Hash: ansistring): ansistring;
+begin
+
+end;
 
 function checkPassword(Str: string; Hash: ansistring): boolean;
 var
