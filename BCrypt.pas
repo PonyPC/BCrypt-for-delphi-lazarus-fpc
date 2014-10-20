@@ -15,6 +15,8 @@ const
   BCRYPT_SALT_LEN = 16;
   //bcrypt uses 128-bit (16-byte) salt (This isn't an adjustable parameter, just a name for a constant)
 
+  BCryptCiphertext = 'OrpheanBeholderScryDoubt';
+
   BsdBase64EncodeTable: array[0..63] of char =
     { 0:} './' +
     { 2:} 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
@@ -121,7 +123,7 @@ begin
   SetLength(Result, 0);
   i := 1;
   len := Length(s);
-  while i < len do
+  while (i < len) and (length(Result) < BCRYPT_SALT_LEN) do
   begin
     c1 := Char64(s[i]);
     Inc(i);
@@ -135,7 +137,7 @@ begin
     // c2 = ..112222
     Append((c1 shl 2) or ((c2 and $30) shr 4));
     //If there's a 3rd character, then we can use c2|c3 to form the second byte
-    if i > len then
+    if (i > len) or (length(Result) >= BCRYPT_SALT_LEN) then
       Break;
 
     c3 := Char64(s[i]);
@@ -148,7 +150,7 @@ begin
     // c3 = ..222233
     Append(((c2 and $0f) shl 4) or ((c3 and $3c) shr 2));
     //If there's a 4th caracter, then we can use c3|c4 to form the third byte
-    if i > len then
+    if (i > len) or (length(Result) >= BCRYPT_SALT_LEN) then
       Break;
 
     c4 := Char64(s[i]);
@@ -163,9 +165,28 @@ begin
   end;
 end;
 
-function HashPassword(Str: string; Hash: ansistring): ansistring;
+function FormatPasswordHashForBsd(const salt, hash: TBytes): ansistring;
+var
+  saltString: ansistring;
+  hashString: ansistring;
 begin
+  saltString := BsdBase64Encode(salt, Length(salt));
+  hashString := BsdBase64Encode(hash, Length(BCryptCiphertext) - 1);
+  Result := Format('$2a$13$%s%s', [saltString, hashString]);
+end;
 
+function HashPassword(Str: string; Hash: ansistring): ansistring;
+var
+  password: ansistring;
+  key, salt, cphierHash: TBytes;
+begin
+  password := AnsiToUtf8(str);
+  SetLength(key, Length(password) + 1);
+  Move(password[1], key[0], Length(password));
+  key[high(key)] := 0;
+  salt := BsdBase64Decode(Hash);
+
+  Result := FormatPasswordHashForBsd(salt, cphierHash);
 end;
 
 function checkPassword(Str: string; Hash: ansistring): boolean;
@@ -181,10 +202,11 @@ begin
     RegexObj.Free;
     Exit;
   end;
-
+  Result := HashPassword(Str, RegexObj.Match[1]) = Hash;
   RegexObj.Free;
   BlowFish := TDCP_blowfish.Create(nil);
   BlowFish.Init(Str, sizeof(Str) * 8, nil);
+  // BlowFish.EncryptECB();
   BlowFish.Free;
 end;
 
